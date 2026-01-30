@@ -1,6 +1,5 @@
 package com.example.vaultnotes.ui.camera
 
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.camera.core.CameraSelector
@@ -22,82 +21,69 @@ import androidx.core.content.ContextCompat
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.concurrent.Executor
 
 @Composable
 fun PantallaCamara(alCapturarFoto: (Uri) -> Unit) {
     val contexto = LocalContext.current
     val cicloVidaOwner = LocalLifecycleOwner.current
-    val ejecutor = remember { ContextCompat.getMainExecutor(contexto) }
-    
-    val vistaPrevia = remember { PreviewView(contexto) }
-    val capturaImagen = remember { ImageCapture.Builder().build() }
-    val selectorCamara = CameraSelector.DEFAULT_BACK_CAMERA
-
-    LaunchedEffect(selectorCamara) {
-        val proveedorCamaraFuture = ProcessCameraProvider.getInstance(contexto)
-        proveedorCamaraFuture.addListener({
-            val proveedorCamara = proveedorCamaraFuture.get()
-            val vistaPreviaConfigurada = Preview.Builder().build().also {
-                it.setSurfaceProvider(vistaPrevia.surfaceProvider)
-            }
-
-            try {
-                proveedorCamara.unbindAll()
-                proveedorCamara.bindToLifecycle(
-                    cicloVidaOwner,
-                    selectorCamara,
-                    vistaPreviaConfigurada,
-                    capturaImagen
-                )
-            } catch (exc: Exception) {
-                Log.e("VaultNotes", "Fallo al iniciar cámara", exc)
-            }
-        }, ejecutor)
-    }
+    val capturadorImagen = remember { ImageCapture.Builder().build() }
+    val proveedorCamaraFuture = remember { ProcessCameraProvider.getInstance(contexto) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        AndroidView(factory = { vistaPrevia }, modifier = Modifier.fillMaxSize())
-        
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx)
+                val executor = ContextCompat.getMainExecutor(ctx)
+                proveedorCamaraFuture.addListener({
+                    val cameraProvider = proveedorCamaraFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+
+                    val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                    try {
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            cicloVidaOwner,
+                            cameraSelector,
+                            preview,
+                            capturadorImagen
+                        )
+                    } catch (ex: Exception) {
+                        Log.e("Cámara", "Error al vincular cámara", ex)
+                    }
+                }, executor)
+                previewView
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+
         Button(
             onClick = {
-                tomarFoto(capturaImagen, contexto, ejecutor, alCapturarFoto)
+                val nombreArchivo = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
+                    .format(System.currentTimeMillis()) + ".jpg"
+                val archivo = File(contexto.filesDir, nombreArchivo)
+                val opciones = ImageCapture.OutputFileOptions.Builder(archivo).build()
+
+                capturadorImagen.takePicture(
+                    opciones,
+                    ContextCompat.getMainExecutor(contexto),
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                            alCapturarFoto(Uri.fromFile(archivo))
+                        }
+                        override fun onError(exception: ImageCaptureException) {
+                            Log.e("Cámara", "Error al capturar", exception)
+                        }
+                    }
+                )
             },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(32.dp)
+                .padding(bottom = 50.dp)
         ) {
-            Text("Capturar Foto Segura")
+            Text("Capturar Foto")
         }
     }
-}
-
-private fun tomarFoto(
-    capturaImagen: ImageCapture,
-    contexto: Context,
-    ejecutor: Executor,
-    alCapturarFoto: (Uri) -> Unit
-) {
-    val nombreArchivo = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US)
-        .format(System.currentTimeMillis()) + ".jpg"
-    
-    val archivoSalida = File(contexto.filesDir, nombreArchivo)
-    
-    val opcionesSalida = ImageCapture.OutputFileOptions.Builder(archivoSalida).build()
-
-    capturaImagen.takePicture(
-        opcionesSalida,
-        ejecutor,
-        object : ImageCapture.OnImageSavedCallback {
-            override fun onImageSaved(resultado: ImageCapture.OutputFileResults) {
-                val uriGuardada = Uri.fromFile(archivoSalida)
-                alCapturarFoto(uriGuardada)
-                Log.d("VaultNotes", "Foto guardada en: $uriGuardada")
-            }
-
-            override fun onError(exc: ImageCaptureException) {
-                Log.e("VaultNotes", "Error al capturar foto", exc)
-            }
-        }
-    )
 }

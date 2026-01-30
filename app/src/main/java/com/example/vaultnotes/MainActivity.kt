@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -18,8 +19,11 @@ import com.example.vaultnotes.ui.auth.PantallaLogin
 import com.example.vaultnotes.ui.camera.PantallaCamara
 import com.example.vaultnotes.ui.notes.PantallaNotas
 import com.example.vaultnotes.ui.theme.VaultNotesTheme
+import com.example.vaultnotes.viewmodel.NotasViewModel
 
 class MainActivity : FragmentActivity() {
+    private val notasViewModel: NotasViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -27,19 +31,14 @@ class MainActivity : FragmentActivity() {
             VaultNotesTheme {
                 val controladorNavegacion = rememberNavController()
                 
-                var tienePermisoCamara by remember {
-                    mutableStateOf(
-                        ContextCompat.checkSelfPermission(
-                            contexto,
-                            Manifest.permission.CAMERA
-                        ) == PackageManager.PERMISSION_GRANTED
-                    )
-                }
-
                 val lanzadorPermisos = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
                 ) { concedido ->
-                    tienePermisoCamara = concedido
+                    if (concedido) {
+                        controladorNavegacion.navigate("camara")
+                    } else {
+                        Toast.makeText(contexto, "Permiso de cámara denegado", Toast.LENGTH_SHORT).show()
+                    }
                 }
 
                 NavHost(navController = controladorNavegacion, startDestination = "login") {
@@ -51,16 +50,21 @@ class MainActivity : FragmentActivity() {
                         })
                     }
                     composable("notas") {
-                        PantallaNotas(alAbrirCamara = {
-                            if (tienePermisoCamara) {
-                                controladorNavegacion.navigate("camara")
-                            } else {
-                                lanzadorPermisos.launch(Manifest.permission.CAMERA)
+                        PantallaNotas(
+                            viewModel = notasViewModel,
+                            alAbrirCamara = {
+                                val estadoPermiso = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA)
+                                if (estadoPermiso == PackageManager.PERMISSION_GRANTED) {
+                                    controladorNavegacion.navigate("camara")
+                                } else {
+                                    lanzadorPermisos.launch(Manifest.permission.CAMERA)
+                                }
                             }
-                        })
+                        )
                     }
                     composable("camara") {
                         PantallaCamara(alCapturarFoto = { uri ->
+                            notasViewModel.agregarFoto(uri)
                             Toast.makeText(contexto, "Foto guardada en boveda", Toast.LENGTH_SHORT).show()
                             controladorNavegacion.popBackStack()
                         })
