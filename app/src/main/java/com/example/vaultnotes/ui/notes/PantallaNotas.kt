@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -13,16 +14,30 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vaultnotes.viewmodel.NotasViewModel
 
 @Composable
-fun PantallaNotas(viewModel: NotasViewModel = viewModel()) {
+fun PantallaNotas(
+    viewModel: NotasViewModel = viewModel(),
+    alAbrirCamara: () -> Unit
+) {
     var estadoTexto by remember { mutableStateOf("") }
     val notas by viewModel.notas.collectAsState()
 
     Scaffold(
         floatingActionButton = {
-            FloatingActionButton(onClick = { 
-                if (estadoTexto.isNotBlank()) viewModel.agregarNota(estadoTexto)
-                estadoTexto = ""
-            }) { Icon(Icons.Default.Add, "Guardar") }
+            Column {
+                FloatingActionButton(
+                    onClick = alAbrirCamara,
+                    containerColor = MaterialTheme.colorScheme.secondary
+                ) {
+                    Icon(Icons.Default.CameraAlt, "Tomar Foto")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                FloatingActionButton(onClick = {
+                    if (estadoTexto.isNotBlank()) viewModel.agregarNota(estadoTexto)
+                    estadoTexto = ""
+                }) {
+                    Icon(Icons.Default.Add, "Guardar Nota")
+                }
+            }
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
