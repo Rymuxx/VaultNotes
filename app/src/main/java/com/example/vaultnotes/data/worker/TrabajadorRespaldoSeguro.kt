@@ -15,19 +15,16 @@ class TrabajadorRespaldoSeguro(
 
     override suspend fun doWork(): Result {
         return try {
-            // 1. Obtenemos las notas (aquí conectarías con tu DB)
             val datosSensibles = "Lista de notas: [Nota 1, Nota 2...]"
-            
-            // 2. Encriptamos TODO el paquete antes de que toque el disco
+
             val respaldoEncriptado = seguridad.encriptar(datosSensibles)
-            
-            // 3. Escribimos el archivo en el almacenamiento privado
+
             val archivoRespaldo = File(applicationContext.filesDir, "respaldo_boveda.dat")
             archivoRespaldo.writeText(respaldoEncriptado)
             
             Result.success()
         } catch (e: Exception) {
-            Result.retry() // Reintenta si el sistema está ocupado
+            Result.retry()
         }
     }
 }
